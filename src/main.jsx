@@ -1128,27 +1128,11 @@ function SettingsPage({ settings, onModeChange, onUpdateSettings }) {
         </div>
 
         <div className="settings-sections">
-          <section className="settings-section">
+          <section className="settings-section performance-section">
             <div className="settings-section-head">
-              <h3>性能模式</h3>
+              <h3>性能与传输</h3>
             </div>
             <PerformanceModeControl value={settings.performanceMode} onChange={onModeChange} />
-          </section>
-
-          <section className="settings-section">
-            <div className="settings-section-head">
-              <h3>重试策略</h3>
-            </div>
-            <RetryModeControl
-              value={settings.retryMode}
-              onChange={(value) => onUpdateSettings({ retryMode: value })}
-            />
-          </section>
-
-          <section className="settings-section">
-            <div className="settings-section-head">
-              <h3>传输参数</h3>
-            </div>
             <div className="settings-two-col">
               <SelectField id="connections" label="连接数" value={settings.connections} className="connections-field" onChange={(value) => onUpdateSettings({ connections: value })}>
                 {["2", "4", "8", "12", "16", "24", "32"].map((value) => (
@@ -1164,7 +1148,17 @@ function SettingsPage({ settings, onModeChange, onUpdateSettings }) {
             </div>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section retry-section">
+            <div className="settings-section-head">
+              <h3>失败处理</h3>
+            </div>
+            <RetryModeControl
+              value={settings.retryMode}
+              onChange={(value) => onUpdateSettings({ retryMode: value })}
+            />
+          </section>
+
+          <section className="settings-section file-section">
             <div className="settings-section-head">
               <h3>文件处理</h3>
             </div>
@@ -1211,7 +1205,6 @@ function PerformanceModeControl({ value, onChange }) {
 
   return (
     <div className="input-stack mode-field">
-      <label>模式</label>
       <div className="mode-control">
         {options.map((option) => {
           const Icon = option.icon;
@@ -1240,7 +1233,6 @@ function RetryModeControl({ value, onChange }) {
 
   return (
     <div className="input-stack retry-field">
-      <label>失败处理</label>
       <div className="mode-control retry-control">
         {options.map((option) => {
           const Icon = option.icon;
