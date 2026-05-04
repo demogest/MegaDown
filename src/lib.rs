@@ -15,7 +15,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tauri::State;
 use tokio::io::AsyncReadExt;
 use url::Url;
 use uuid::Uuid;
@@ -46,7 +45,7 @@ const LOW_CPU_MAX_PARALLEL_FOLDER_FILES: usize = 2;
 type Aes128Ctr = Ctr128BE<Aes128>;
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     tasks: Arc<Mutex<HashMap<String, TaskSnapshot>>>,
     controls: Arc<Mutex<HashMap<String, Arc<TaskControl>>>>,
     artifacts: Arc<Mutex<HashMap<String, BTreeSet<PathBuf>>>>,
@@ -204,31 +203,31 @@ impl SpeedMeter {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct TaskSnapshot {
-    id: String,
-    url: String,
-    file_name: String,
-    output_dir: String,
-    output_path: String,
-    current_file: Option<String>,
-    status: TaskStatus,
-    total_bytes: u64,
-    downloaded_bytes: u64,
-    speed_bps: f64,
-    connections: usize,
-    chunk_size_bytes: u64,
-    overwrite: bool,
-    verify_integrity: bool,
-    performance_mode: PerformanceMode,
-    retry_mode: RetryMode,
-    error: Option<String>,
-    created_at: u128,
-    updated_at: u128,
+pub struct TaskSnapshot {
+    pub id: String,
+    pub url: String,
+    pub file_name: String,
+    pub output_dir: String,
+    pub output_path: String,
+    pub current_file: Option<String>,
+    pub status: TaskStatus,
+    pub total_bytes: u64,
+    pub downloaded_bytes: u64,
+    pub speed_bps: f64,
+    pub connections: usize,
+    pub chunk_size_bytes: u64,
+    pub overwrite: bool,
+    pub verify_integrity: bool,
+    pub performance_mode: PerformanceMode,
+    pub retry_mode: RetryMode,
+    pub error: Option<String>,
+    pub created_at: u128,
+    pub updated_at: u128,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-enum TaskStatus {
+pub enum TaskStatus {
     Queued,
     Resolving,
     Downloading,
@@ -248,44 +247,44 @@ impl TaskStatus {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct DownloadRequest {
-    url: String,
-    output_dir: Option<String>,
-    password: Option<String>,
-    connections: Option<usize>,
-    chunk_size_mb: Option<u64>,
-    overwrite: Option<bool>,
-    verify_integrity: Option<bool>,
-    performance_mode: Option<PerformanceMode>,
-    retry_mode: Option<RetryMode>,
-    low_cpu_mode: Option<bool>,
+pub struct DownloadRequest {
+    pub url: String,
+    pub output_dir: Option<String>,
+    pub password: Option<String>,
+    pub connections: Option<usize>,
+    pub chunk_size_mb: Option<u64>,
+    pub overwrite: Option<bool>,
+    pub verify_integrity: Option<bool>,
+    pub performance_mode: Option<PerformanceMode>,
+    pub retry_mode: Option<RetryMode>,
+    pub low_cpu_mode: Option<bool>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-enum PerformanceMode {
+pub enum PerformanceMode {
     Balanced,
     Fast,
     LowImpact,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-enum RetryMode {
+pub enum RetryMode {
     Auto,
     Manual,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LinkPreview {
-    kind: String,
-    name: String,
-    total_bytes: u64,
-    file_count: usize,
-    requires_password: bool,
+pub struct LinkPreview {
+    pub kind: String,
+    pub name: String,
+    pub total_bytes: u64,
+    pub file_count: usize,
+    pub requires_password: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -737,17 +736,15 @@ impl AppState {
     }
 }
 
-#[tauri::command]
-fn default_download_dir() -> Result<String, String> {
+pub fn default_download_dir() -> Result<String, String> {
     Ok(default_download_path()
         .map_err(|err| err.to_string())?
         .display()
         .to_string())
 }
 
-#[tauri::command]
-async fn choose_download_dir() -> Result<Option<String>, String> {
-    let selected = tauri::async_runtime::spawn_blocking(|| {
+pub async fn choose_download_dir() -> Result<Option<String>, String> {
+    let selected = tokio::task::spawn_blocking(|| {
         rfd::FileDialog::new()
             .set_title("选择保存文件夹")
             .pick_folder()
@@ -758,37 +755,32 @@ async fn choose_download_dir() -> Result<Option<String>, String> {
     Ok(selected.map(|path| path.display().to_string()))
 }
 
-#[tauri::command]
-fn list_tasks(state: State<'_, AppState>) -> Vec<TaskSnapshot> {
+pub fn list_tasks(state: &AppState) -> Vec<TaskSnapshot> {
     state.sorted_tasks()
 }
 
-#[tauri::command]
-fn cancel_download(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let control = state.get_control(&id)?;
+pub fn cancel_download(state: &AppState, id: &str) -> Result<(), String> {
+    let control = state.get_control(id)?;
     control.cancel();
-    state.set_status(&id, TaskStatus::Cancelled);
+    state.set_status(id, TaskStatus::Cancelled);
     Ok(())
 }
 
-#[tauri::command]
-fn pause_download(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let control = state.get_control(&id)?;
+pub fn pause_download(state: &AppState, id: &str) -> Result<(), String> {
+    let control = state.get_control(id)?;
     control.pause();
-    state.set_status(&id, TaskStatus::Paused);
+    state.set_status(id, TaskStatus::Paused);
     Ok(())
 }
 
-#[tauri::command]
-fn resume_download(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let control = state.get_control(&id)?;
+pub fn resume_download(state: &AppState, id: &str) -> Result<(), String> {
+    let control = state.get_control(id)?;
     control.resume();
-    state.set_status(&id, TaskStatus::Queued);
+    state.set_status(id, TaskStatus::Queued);
     Ok(())
 }
 
-#[tauri::command]
-fn pause_all_downloads(state: State<'_, AppState>) -> Result<(), String> {
+pub fn pause_all_downloads(state: &AppState) -> Result<(), String> {
     for (id, control) in state.controls_snapshot()? {
         control.pause();
         state.set_status(&id, TaskStatus::Paused);
@@ -796,8 +788,7 @@ fn pause_all_downloads(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn resume_all_downloads(state: State<'_, AppState>) -> Result<(), String> {
+pub fn resume_all_downloads(state: &AppState) -> Result<(), String> {
     for (id, control) in state.controls_snapshot()? {
         control.resume();
         state.set_status(&id, TaskStatus::Queued);
@@ -805,25 +796,21 @@ fn resume_all_downloads(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn delete_task(state: State<'_, AppState>, id: String) -> Result<TaskSnapshot, String> {
-    state.delete_finished_task(&id)
+pub fn delete_task(state: &AppState, id: &str) -> Result<TaskSnapshot, String> {
+    state.delete_finished_task(id)
 }
 
-#[tauri::command]
-fn clear_finished_tasks(state: State<'_, AppState>) -> Result<usize, String> {
+pub fn clear_finished_tasks(state: &AppState) -> Result<usize, String> {
     state.clear_finished_tasks()
 }
 
-#[tauri::command]
-fn open_task_file(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let (task, path, _) = completed_task_path(state.inner(), &id)?;
+pub fn open_task_file(state: &AppState, id: &str) -> Result<(), String> {
+    let (task, path, _) = completed_task_path(state, id)?;
     open_path(&path).map_err(|err| format!("无法打开 {}：{err}", task.file_name))
 }
 
-#[tauri::command]
-fn open_task_folder(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let (_, path, metadata) = completed_task_path(state.inner(), &id)?;
+pub fn open_task_folder(state: &AppState, id: &str) -> Result<(), String> {
+    let (_, path, metadata) = completed_task_path(state, id)?;
     let folder = if metadata.is_dir() {
         path
     } else {
@@ -911,7 +898,7 @@ async fn cleanup_task_artifacts(state: &AppState, task_id: &str) -> usize {
         }
     }
 
-    let removed = tauri::async_runtime::spawn_blocking(move || remove_artifact_files(paths))
+    let removed = tokio::task::spawn_blocking(move || remove_artifact_files(paths))
         .await
         .unwrap_or(0);
     state.clear_artifacts(task_id);
@@ -928,8 +915,7 @@ fn remove_artifact_files(paths: Vec<PathBuf>) -> usize {
     })
 }
 
-#[tauri::command]
-async fn inspect_link(url: String, password: Option<String>) -> Result<LinkPreview, String> {
+pub async fn inspect_link(url: String, password: Option<String>) -> Result<LinkPreview, String> {
     let parsed = match parse_public_link(&url, non_empty_password(password.as_deref())) {
         Ok(parsed) => parsed,
         Err(DownloadError::PasswordRequired) => {
@@ -973,9 +959,8 @@ async fn inspect_link(url: String, password: Option<String>) -> Result<LinkPrevi
     }
 }
 
-#[tauri::command]
-async fn start_download(
-    state: State<'_, AppState>,
+pub async fn start_download(
+    state: AppState,
     request: DownloadRequest,
 ) -> Result<TaskSnapshot, String> {
     let parsed = parse_public_link(
@@ -1027,10 +1012,10 @@ async fn start_download(
         updated_at: now,
     };
 
-    let app_state = state.inner().clone();
+    let app_state = state.clone();
     app_state.insert_task(task.clone(), control.clone());
 
-    tauri::async_runtime::spawn(async move {
+    tokio::spawn(async move {
         let task_id = id.clone();
         let result = async {
             let _permit = acquire_task_slot(&app_state, &control, &task_id).await?;
@@ -1120,7 +1105,10 @@ async fn run_download_task(
     let overwrite = request.overwrite.unwrap_or(false);
     let verify_integrity = request.verify_integrity.unwrap_or(false);
     let retry_mode = request.retry_mode.unwrap_or(RetryMode::Auto);
-    let low_cpu_mode = matches!(resolve_performance_mode(&request), PerformanceMode::LowImpact);
+    let low_cpu_mode = matches!(
+        resolve_performance_mode(&request),
+        PerformanceMode::LowImpact
+    );
 
     match parsed {
         PublicLink::File(link) => {
@@ -1489,9 +1477,9 @@ async fn download_file_to_path(
     if let Some(shared_downloaded) = &shared_downloaded {
         if already_completed > 0 {
             if count_resume_progress {
-                let new_downloaded =
-                    shared_downloaded.fetch_add(already_completed, Ordering::Relaxed)
-                        + already_completed;
+                let new_downloaded = shared_downloaded
+                    .fetch_add(already_completed, Ordering::Relaxed)
+                    + already_completed;
                 state.set_progress_baseline(task_id, new_downloaded, global_total);
             }
         }
@@ -1809,7 +1797,9 @@ fn parse_public_link(raw: &str, password: Option<&str>) -> Result<PublicLink, Do
             return Ok(PublicLink::Folder(MegaFolderLink {
                 folder_id: parts[1].to_string(),
                 key: parts[2].to_string(),
-                selected_handle: parts.get(3).and_then(|value| selected_handle_from_path(value)),
+                selected_handle: parts
+                    .get(3)
+                    .and_then(|value| selected_handle_from_path(value)),
             }));
         }
     }
@@ -2032,12 +2022,9 @@ async fn fetch_folder_plan(
     }
 
     let selected_node = match link.selected_handle.as_deref() {
-        Some(handle) => Some(
-            nodes
-                .get(handle)
-                .cloned()
-                .ok_or_else(|| DownloadError::Message("selected MEGA folder item was not found".to_string()))?,
-        ),
+        Some(handle) => Some(nodes.get(handle).cloned().ok_or_else(|| {
+            DownloadError::Message("selected MEGA folder item was not found".to_string())
+        })?),
         None => None,
     };
     let path_root_handle = match (link.selected_handle.as_deref(), selected_node.as_ref()) {
@@ -2062,7 +2049,8 @@ async fn fetch_folder_plan(
     }
 
     for file in &mut files {
-        file.relative_path = build_relative_path(&file.handle, &file.name, &nodes, path_root_handle);
+        file.relative_path =
+            build_relative_path(&file.handle, &file.name, &nodes, path_root_handle);
     }
 
     if files.len() > MAX_FOLDER_FILES_PER_TASK {
@@ -2823,28 +2811,4 @@ mod tests {
             PublicLink::File(_) => panic!("expected folder link"),
         }
     }
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![
-            default_download_dir,
-            choose_download_dir,
-            inspect_link,
-            start_download,
-            list_tasks,
-            cancel_download,
-            pause_download,
-            resume_download,
-            pause_all_downloads,
-            resume_all_downloads,
-            delete_task,
-            clear_finished_tasks,
-            open_task_file,
-            open_task_folder
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running MegaDown");
 }

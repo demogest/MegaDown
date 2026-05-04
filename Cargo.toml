@@ -1,7 +1,7 @@
 [package]
 name = "megadown"
 version = "0.1.0"
-description = "A high-performance MEGA public-link downloader built with Rust and Tauri"
+description = "A high-performance MEGA public-link downloader built with Rust and Slint"
 authors = ["MegaDown"]
 license = "MIT"
 repository = ""
@@ -10,7 +10,7 @@ rust-version = "1.77"
 default-run = "megadown"
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+slint-build = "1.16"
 
 [dependencies]
 aes = "0.8"
@@ -22,7 +22,7 @@ sanitize-filename = "0.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tauri = { version = "2", features = [] }
+slint = "1.16"
 thiserror = "1"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync", "time"] }
 url = "2"

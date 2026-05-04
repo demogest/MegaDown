@@ -1,0 +1,795 @@
+import { Button, CheckBox, ComboBox, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+
+export struct UiTask {
+    id: string,
+    file_name: string,
+    detail: string,
+    status_text: string,
+    status_kind: string,
+    downloaded_text: string,
+    speed_text: string,
+    eta_text: string,
+    config_text: string,
+    output_dir: string,
+    output_path: string,
+    current_file: string,
+    error_text: string,
+    url: string,
+    created_at: string,
+    updated_at: string,
+    progress_value: float,
+    can_pause: bool,
+    can_resume: bool,
+    can_cancel: bool,
+    can_open: bool,
+    can_retry: bool,
+    can_delete: bool,
+}
+
+component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    color: #354052;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+component FieldLabel inherits Text {
+    in property <string> label;
+    text: label;
+    color: #657184;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+component Card inherits Rectangle {
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: #dfe5ee;
+    background: #ffffff;
+}
+
+component StatTile inherits Card {
+    in property <string> value;
+    in property <string> label;
+    min-width: 110px;
+    height: 54px;
+
+    VerticalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 8px;
+        padding-bottom: 7px;
+        spacing: 2px;
+
+        Text {
+            text: root.value;
+            color: #171d28;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        Text {
+            text: root.label;
+            color: #6b7686;
+            font-size: 12px;
+        }
+    }
+}
+
+component StatusDot inherits Rectangle {
+    in property <string> status_kind;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background: status_kind == "completed" ? #17865d :
+        status_kind == "failed" ? #d8293a :
+        status_kind == "cancelled" ? #7d8794 :
+        status_kind == "paused" ? #a66a00 :
+        #226fbd;
+}
+
+component FilterButton inherits Rectangle {
+    in property <string> label;
+    in property <string> count;
+    in property <bool> active;
+    in property <int> index;
+    callback clicked(int);
+
+    height: 36px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: active ? #f0b8c0 : #dfe5ee;
+    background: active ? #fff0f2 : #ffffff;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        Text {
+            text: root.label;
+            color: root.active ? #d8293a : #4b5565;
+            font-size: 13px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle { horizontal-stretch: 1; }
+
+        Text {
+            text: root.count;
+            color: root.active ? #d8293a : #748093;
+            font-size: 12px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+
+    TouchArea {
+        clicked => { root.clicked(root.index); }
+    }
+}
+
+component DetailRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 32px;
+
+    HorizontalLayout {
+        spacing: 10px;
+
+        Text {
+            text: root.label;
+            width: 74px;
+            color: #5b6574;
+            font-size: 12px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.value;
+            color: #202838;
+            font-size: 12px;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component TaskRow inherits Card {
+    in property <UiTask> task;
+    in property <bool> selected;
+    callback row_selected(string);
+    callback pause(string);
+    callback resume(string);
+    callback cancel(string);
+    callback open_file(string);
+    callback open_folder(string);
+    callback retry(string);
+    callback delete_task(string);
+
+    min-height: 92px;
+    border-color: selected ? #d8293a : #dfe5ee;
+    background: selected ? #fffafa : #ffffff;
+
+    VerticalLayout {
+        padding: 11px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            spacing: 10px;
+
+            StatusDot {
+                status_kind: root.task.status_kind;
+                vertical-stretch: 0;
+            }
+
+            VerticalLayout {
+                spacing: 3px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.task.file_name;
+                    color: #171d28;
+                    font-size: 14px;
+                    font-weight: 800;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: root.task.detail;
+                    color: #6b7686;
+                    font-size: 12px;
+                    overflow: elide;
+                }
+            }
+
+            Text {
+                text: root.task.status_text;
+                color: root.task.status_kind == "failed" ? #d8293a :
+                    root.task.status_kind == "completed" ? #17865d :
+                    root.task.status_kind == "paused" ? #a66a00 : #226fbd;
+                font-size: 12px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+        }
+
+        Rectangle {
+            height: 7px;
+            border-radius: 4px;
+            background: #e8edf3;
+
+            Rectangle {
+                height: parent.height;
+                width: parent.width * root.task.progress_value / 100;
+                border-radius: 4px;
+                background: root.task.status_kind == "completed" ? #17865d :
+                    root.task.status_kind == "failed" ? #d8293a :
+                    root.task.status_kind == "cancelled" ? #7d8794 :
+                    root.task.status_kind == "paused" ? #a66a00 :
+                    #226fbd;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Text {
+                text: root.task.downloaded_text + "  " + root.task.speed_text + "  " + root.task.eta_text;
+                color: #657184;
+                font-size: 12px;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            Button {
+                text: "详情";
+                width: 62px;
+                clicked => { root.row_selected(root.task.id); }
+            }
+
+            if root.task.can_pause : Button {
+                text: "暂停";
+                width: 62px;
+                clicked => { root.pause(root.task.id); }
+            }
+
+            if root.task.can_resume : Button {
+                text: "继续";
+                width: 62px;
+                clicked => { root.resume(root.task.id); }
+            }
+
+            if root.task.can_cancel : Button {
+                text: "取消";
+                width: 62px;
+                clicked => { root.cancel(root.task.id); }
+            }
+
+            if root.task.can_open : Button {
+                text: "打开";
+                width: 62px;
+                clicked => { root.open_file(root.task.id); }
+            }
+
+            if root.task.can_open : Button {
+                text: "目录";
+                width: 62px;
+                clicked => { root.open_folder(root.task.id); }
+            }
+
+            if root.task.can_retry : Button {
+                text: root.task.status_kind == "completed" ? "重下" : "重试";
+                width: 62px;
+                clicked => { root.retry(root.task.id); }
+            }
+
+            if root.task.can_delete : Button {
+                text: "删除";
+                width: 62px;
+                clicked => { root.delete_task(root.task.id); }
+            }
+        }
+    }
+}
+
+export component MegaDownWindow inherits Window {
+    title: "MegaDown";
+    preferred-width: 1120px;
+    preferred-height: 720px;
+    min-width: 900px;
+    min-height: 640px;
+    background: #f6f7f9;
+
+    in-out property <string> url_text;
+    in-out property <string> password_text;
+    in-out property <string> output_dir;
+    in-out property <int> performance_mode_index: 0;
+    in-out property <int> connections_index: 2;
+    in-out property <int> chunk_size_index: 2;
+    in-out property <int> retry_mode_index: 0;
+    in-out property <bool> overwrite_enabled;
+    in-out property <bool> verify_enabled;
+    in-out property <int> filter_index: 0;
+    in property <[UiTask]> tasks;
+    in property <UiTask> selected_task;
+    in property <bool> has_selected_task;
+    in property <string> notice_title;
+    in property <string> notice_text;
+    in property <bool> notice_is_error;
+    in property <bool> busy;
+    in property <string> all_count;
+    in property <string> active_count;
+    in property <string> paused_count;
+    in property <string> completed_count;
+    in property <string> failed_count;
+    in property <string> cancelled_count;
+    in property <string> visible_count_text;
+    in property <string> total_speed_text;
+    in property <bool> has_pausable;
+    in property <bool> has_paused;
+    in property <bool> has_clearable;
+
+    callback inspect_requested();
+    callback start_requested();
+    callback choose_dir_requested();
+    callback filter_requested(int);
+    callback select_task(string);
+    callback pause_task(string);
+    callback resume_task(string);
+    callback cancel_task(string);
+    callback open_task_file(string);
+    callback open_task_folder(string);
+    callback retry_task(string);
+    callback delete_task(string);
+    callback pause_all_requested();
+    callback resume_all_requested();
+    callback clear_finished_requested();
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            height: 56px;
+            spacing: 12px;
+
+            Rectangle {
+                width: 46px;
+                height: 46px;
+                border-radius: 8px;
+                background: #d8293a;
+
+                Text {
+                    text: "M";
+                    color: #ffffff;
+                    font-size: 22px;
+                    font-weight: 900;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                width: 220px;
+                spacing: 2px;
+
+                Text {
+                    text: "MegaDown";
+                    color: #111722;
+                    font-size: 23px;
+                    font-weight: 900;
+                }
+
+                Text {
+                    text: "Slint 桌面下载管理器";
+                    color: #667180;
+                    font-size: 13px;
+                }
+            }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            StatTile { value: root.all_count; label: "全部任务"; }
+            StatTile { value: root.active_count; label: "进行中"; }
+            StatTile { value: root.total_speed_text; label: "总速度"; min-width: 138px; }
+        }
+
+        if root.notice_title != "" : Card {
+            height: 46px;
+            background: root.notice_is_error ? #fff0f2 : #ffffff;
+            border-color: root.notice_is_error ? #e7a9b0 : #dfe5ee;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 12px;
+
+                Text {
+                    text: root.notice_title;
+                    color: root.notice_is_error ? #d8293a : #202838;
+                    font-size: 13px;
+                    font-weight: 800;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.notice_text;
+                    color: #657184;
+                    font-size: 13px;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            VerticalLayout {
+                width: 360px;
+                spacing: 12px;
+
+                Card {
+                    min-height: 292px;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        SectionTitle { label: "新建下载"; }
+
+                        TextEdit {
+                            text <=> root.url_text;
+                            height: 118px;
+                            placeholder-text: "粘贴一个或多个 MEGA 公共链接，每行一个";
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Button {
+                                text: root.busy ? "处理中" : "预览";
+                                enabled: !root.busy;
+                                clicked => { root.inspect_requested(); }
+                            }
+
+                            Button {
+                                text: root.busy ? "处理中" : "开始下载";
+                                primary: true;
+                                enabled: !root.busy;
+                                clicked => { root.start_requested(); }
+                            }
+                        }
+
+                        FieldLabel { label: "共享密码"; }
+
+                        LineEdit {
+                            text <=> root.password_text;
+                            input-type: password;
+                            placeholder-text: "密码保护链接可填写";
+                        }
+
+                        FieldLabel { label: "保存目录"; }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            LineEdit {
+                                text <=> root.output_dir;
+                                placeholder-text: "默认下载目录";
+                                horizontal-stretch: 1;
+                            }
+
+                            Button {
+                                text: "选择";
+                                width: 70px;
+                                clicked => { root.choose_dir_requested(); }
+                            }
+                        }
+                    }
+                }
+
+                Card {
+                    min-height: 238px;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        SectionTitle { label: "传输设置"; }
+
+                        FieldLabel { label: "性能模式"; }
+                        ComboBox {
+                            model: ["均衡", "极速", "低占用"];
+                            current-index <=> root.performance_mode_index;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+
+                            VerticalLayout {
+                                spacing: 6px;
+                                FieldLabel { label: "连接数"; }
+                                ComboBox {
+                                    model: ["2", "4", "8", "12", "16", "24", "32"];
+                                    current-index <=> root.connections_index;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 6px;
+                                FieldLabel { label: "分片大小"; }
+                                ComboBox {
+                                    model: ["2 MB", "4 MB", "8 MB", "16 MB", "32 MB"];
+                                    current-index <=> root.chunk_size_index;
+                                }
+                            }
+                        }
+
+                        FieldLabel { label: "失败处理"; }
+                        ComboBox {
+                            model: ["自动重试", "手动重试"];
+                            current-index <=> root.retry_mode_index;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 12px;
+
+                            CheckBox {
+                                text: "覆盖已有文件";
+                                checked <=> root.overwrite_enabled;
+                            }
+
+                            CheckBox {
+                                text: "完整校验";
+                                checked <=> root.verify_enabled;
+                            }
+                        }
+                    }
+                }
+
+                Card {
+                    min-height: 112px;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 8px;
+
+                        SectionTitle { label: "队列控制"; }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Button {
+                                text: "全部暂停";
+                                enabled: root.has_pausable;
+                                clicked => { root.pause_all_requested(); }
+                            }
+
+                            Button {
+                                text: "全部继续";
+                                enabled: root.has_paused;
+                                clicked => { root.resume_all_requested(); }
+                            }
+                        }
+
+                        Button {
+                            text: "清空已结束";
+                            enabled: root.has_clearable;
+                            clicked => { root.clear_finished_requested(); }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 12px;
+                horizontal-stretch: 1;
+
+                Card {
+                    height: 60px;
+
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 8px;
+
+                        FilterButton {
+                            label: "全部";
+                            count: root.all_count;
+                            index: 0;
+                            active: root.filter_index == 0;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                        FilterButton {
+                            label: "下载中";
+                            count: root.active_count;
+                            index: 1;
+                            active: root.filter_index == 1;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                        FilterButton {
+                            label: "已暂停";
+                            count: root.paused_count;
+                            index: 2;
+                            active: root.filter_index == 2;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                        FilterButton {
+                            label: "已完成";
+                            count: root.completed_count;
+                            index: 3;
+                            active: root.filter_index == 3;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                        FilterButton {
+                            label: "失败";
+                            count: root.failed_count;
+                            index: 4;
+                            active: root.filter_index == 4;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                        FilterButton {
+                            label: "取消";
+                            count: root.cancelled_count;
+                            index: 5;
+                            active: root.filter_index == 5;
+                            clicked(index) => { root.filter_requested(index); }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    vertical-stretch: 1;
+
+                    Card {
+                        horizontal-stretch: 1;
+
+                        VerticalLayout {
+                            padding: 14px;
+                            spacing: 10px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                SectionTitle { label: "下载队列"; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text {
+                                    text: root.visible_count_text;
+                                    color: #657184;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            ScrollView {
+                                vertical-stretch: 1;
+
+                                VerticalLayout {
+                                    spacing: 8px;
+
+                                    for task in root.tasks : TaskRow {
+                                        task: task;
+                                        selected: task.id == root.selected_task.id;
+                                        row_selected(id) => { root.select_task(id); }
+                                        pause(id) => { root.pause_task(id); }
+                                        resume(id) => { root.resume_task(id); }
+                                        cancel(id) => { root.cancel_task(id); }
+                                        open_file(id) => { root.open_task_file(id); }
+                                        open_folder(id) => { root.open_task_folder(id); }
+                                        retry(id) => { root.retry_task(id); }
+                                        delete_task(id) => { root.delete_task(id); }
+                                    }
+
+                                    if root.tasks.length == 0 : Rectangle {
+                                        min-height: 260px;
+
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 8px;
+
+                                            Text {
+                                                text: root.all_count == "0" ? "暂无任务" : "当前筛选没有任务";
+                                                color: #202838;
+                                                font-size: 18px;
+                                                font-weight: 800;
+                                                horizontal-alignment: center;
+                                            }
+
+                                            Text {
+                                                text: root.all_count == "0" ? "添加公共文件或文件夹链接后会显示进度。" : "切换上方筛选可查看其他状态。";
+                                                color: #6b7686;
+                                                font-size: 13px;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Card {
+                        width: 310px;
+
+                        VerticalLayout {
+                            padding: 14px;
+                            spacing: 10px;
+
+                            SectionTitle { label: "任务详情"; }
+
+                            if !root.has_selected_task : Rectangle {
+                                vertical-stretch: 1;
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 8px;
+
+                                    Text {
+                                        text: "未选择任务";
+                                        color: #202838;
+                                        font-size: 18px;
+                                        font-weight: 800;
+                                        horizontal-alignment: center;
+                                    }
+
+                                    Text {
+                                        text: "点击队列里的详情查看链接、路径和参数。";
+                                        color: #6b7686;
+                                        font-size: 13px;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+
+                            if root.has_selected_task : VerticalLayout {
+                                spacing: 10px;
+
+                                Text {
+                                    text: root.selected_task.file_name;
+                                    color: #171d28;
+                                    font-size: 16px;
+                                    font-weight: 900;
+                                    overflow: elide;
+                                }
+
+                                Rectangle {
+                                    height: 8px;
+                                    border-radius: 4px;
+                                    background: #e8edf3;
+
+                                    Rectangle {
+                                        height: parent.height;
+                                        width: parent.width * root.selected_task.progress_value / 100;
+                                        border-radius: 4px;
+                                        background: root.selected_task.status_kind == "completed" ? #17865d :
+                                            root.selected_task.status_kind == "failed" ? #d8293a :
+                                            root.selected_task.status_kind == "paused" ? #a66a00 : #226fbd;
+                                    }
+                                }
+
+                                DetailRow { label: "状态"; value: root.selected_task.status_text + " · " + root.selected_task.eta_text; }
+                                DetailRow { label: "大小"; value: root.selected_task.downloaded_text; }
+                                DetailRow { label: "速度"; value: root.selected_task.speed_text; }
+                                DetailRow { label: "参数"; value: root.selected_task.config_text; }
+                                DetailRow { label: "保存目录"; value: root.selected_task.output_dir; }
+                                DetailRow { label: "保存路径"; value: root.selected_task.output_path; }
+                                DetailRow { label: "当前文件"; value: root.selected_task.current_file; }
+                                DetailRow { label: "创建时间"; value: root.selected_task.created_at; }
+                                DetailRow { label: "更新时间"; value: root.selected_task.updated_at; }
+                                DetailRow { label: "错误"; value: root.selected_task.error_text; }
+                                DetailRow { label: "链接"; value: root.selected_task.url; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

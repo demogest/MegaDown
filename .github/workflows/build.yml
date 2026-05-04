@@ -1,0 +1,122 @@
+name: Cross-platform build
+
+on:
+  push:
+    branches:
+      - main
+      - slint
+  pull_request:
+    branches:
+      - main
+      - slint
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            artifact: windows
+            binary: megadown.exe
+          - name: macOS
+            os: macos-latest
+            artifact: macos
+            binary: megadown
+          - name: Linux
+            os: ubuntu-latest
+            artifact: linux
+            binary: megadown
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libayatana-appindicator3-dev \
+            libfontconfig1-dev \
+            libgtk-3-dev \
+            libjavascriptcoregtk-4.1-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libwayland-dev \
+            libx11-dev \
+            libx11-xcb-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            patchelf
+
+      - name: Setup Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Setup Node.js
+        if: hashFiles('package-lock.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Detect project layout
+        shell: bash
+        run: |
+          if [[ -f Cargo.toml ]]; then
+            echo "PROJECT_LAYOUT=root" >> "$GITHUB_ENV"
+            echo "RELEASE_DIR=target/release" >> "$GITHUB_ENV"
+          elif [[ -f src-tauri/Cargo.toml ]]; then
+            echo "PROJECT_LAYOUT=tauri" >> "$GITHUB_ENV"
+            echo "RELEASE_DIR=src-tauri/target/release" >> "$GITHUB_ENV"
+          else
+            echo "No Rust project manifest found." >&2
+            exit 1
+          fi
+
+      - name: Build web frontend for Tauri branch
+        if: env.PROJECT_LAYOUT == 'tauri'
+        shell: bash
+        run: |
+          npm ci
+          npm run web:build
+
+      - name: Build Slint branch
+        if: env.PROJECT_LAYOUT == 'root'
+        run: cargo build --release --locked
+
+      - name: Build Tauri branch Rust binary
+        if: env.PROJECT_LAYOUT == 'tauri'
+        run: cargo build --manifest-path src-tauri/Cargo.toml --release --locked
+
+      - name: Collect artifact
+        shell: bash
+        run: |
+          artifact_dir="artifacts/MegaDown-${{ github.ref_name }}-${{ matrix.artifact }}"
+          mkdir -p "$artifact_dir"
+          cp "$RELEASE_DIR/${{ matrix.binary }}" "$artifact_dir/"
+          if [[ -f README.md ]]; then
+            cp README.md "$artifact_dir/"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MegaDown-${{ github.ref_name }}-${{ matrix.artifact }}
+          path: artifacts/MegaDown-${{ github.ref_name }}-${{ matrix.artifact }}
+          if-no-files-found: error
