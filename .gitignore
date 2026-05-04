@@ -1,0 +1,11 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+pet-runs/
+
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
