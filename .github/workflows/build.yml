@@ -100,9 +100,15 @@ jobs:
         if: env.PROJECT_LAYOUT == 'root'
         run: cargo build --release --locked
 
+      - name: Verify Tauri icon
+        if: env.PROJECT_LAYOUT == 'tauri'
+        shell: bash
+        run: test -f src-tauri/icons/icon.ico
+
       - name: Build Tauri branch Rust binary
         if: env.PROJECT_LAYOUT == 'tauri'
-        run: cargo build --manifest-path src-tauri/Cargo.toml --release --locked
+        working-directory: src-tauri
+        run: cargo build --release --locked
 
       - name: Collect artifact
         shell: bash
