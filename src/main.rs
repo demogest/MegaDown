@@ -74,6 +74,7 @@ fn wire_callbacks(
         move |id| {
             *selected_id.lock().expect("selected task lock poisoned") = Some(id.to_string());
             if let Some(ui) = ui_weak.upgrade() {
+                ui.set_active_tab(1);
                 refresh_ui(&ui, &state, &selected_id);
             }
         }
