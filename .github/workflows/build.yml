@@ -233,7 +233,11 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease || false }}
         run: |
           shopt -s nullglob
-          assets=(release-assets/*)
+          assets=()
+          while IFS= read -r -d '' asset; do
+            assets+=("$asset")
+          done < <(find release-assets -type f -print0)
+
           if (( ${#assets[@]} == 0 )); then
             echo "No release assets were downloaded." >&2
             exit 1
