@@ -188,7 +188,7 @@ jobs:
       - name: Package artifact
         shell: pwsh
         run: |
-          $distDir = "dist"
+          $distDir = "release-dist"
           New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
           $artifactDir = Join-Path "artifacts" $env:PACKAGE_NAME
@@ -204,7 +204,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}
-          path: dist/*
+          path: release-dist/*
           if-no-files-found: error
 
   release:
